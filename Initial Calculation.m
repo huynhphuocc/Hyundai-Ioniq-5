@@ -14,13 +14,13 @@ fig = figure('Name','Initial Calculation of Hyundai Ioniq 5 Crashworthiness','Nu
     % Create a uitabgroup
     tabgroup = uitabgroup(fig);
     % Create uitab objects
-    tab1 = uitab(tabgroup, 'Title', 'Estimated Crash Pulse'); 
-    tab2 = uitab(tabgroup, 'Title', 'Estimated Velocity Reduction');
-    tab3 = uitab(tabgroup, 'Title', 'Estimated Vehicle Displacement');
-    tab4 = uitab(tabgroup, 'Title', 'Impact Force');
-    tab5 = uitab(tabgroup, 'Title', 'Kinetic Energy');
-    tab6 = uitab(tabgroup, 'Title', 'Energy Absorption');
-    tab7 = uitab(tabgroup, 'Title', 'Energy Summary');
+    tab1 = uitab(tabgroup, 'Title', '1. Estimated Crash Pulse'); 
+    tab2 = uitab(tabgroup, 'Title', '2. Estimated Velocity Reduction');
+    tab3 = uitab(tabgroup, 'Title', '3. Estimated Vehicle Displacement');
+    tab4 = uitab(tabgroup, 'Title', '4. Impact Force');
+    tab5 = uitab(tabgroup, 'Title', '5. Kinetic Energy');
+    tab6 = uitab(tabgroup, 'Title', '6. Energy Absorption');
+    tab7 = uitab(tabgroup, 'Title', '7. Energy Summary');
     tab8 = uitab(tabgroup, 'Title', 'Estimated Deformation');
     tab9 = uitab(tabgroup, 'Title', 'Stress - Strain Curve'); 
 %% -------------------------------
@@ -119,7 +119,7 @@ hold on
 plot(ax1, t(2:end), a_non(2:end)/9.81, '--', 'LineWidth',1.6, 'Color',[0.85 0.33 0.10]);
 ylabel(ax1, 'Deceleration (Gs)','FontSize', 13);
 xlabel(ax1, 'Duration (s)','FontSize', 13);
-title(ax1, 'Estimated Crash Pulse - Linear vs Nonlinear Maxwell Model','FontSize', 14);
+title(ax1, 'Estimated Crash Pulse - Linear vs Nonlinear Maxwell Model','FontSize', 16);
 legend(ax1,'a_{linear}','v_{linear}','v_{nonlinear}','a_{nonlinear}');
         % Find the highest point 
         [Max_a_lin, idx_Max_a_lin] = min(a_lin/9.81);
@@ -151,7 +151,7 @@ legend(ax1,'a_{linear}','v_{linear}','v_{nonlinear}','a_{nonlinear}');
         set(gca,'xMinorGrid','on');
         grid on;
         pbaspect([6 4 1]);
-        hold(ax1, 'off');
+        hold off
 
 %% -------------------------------
 %2. Estimated Velocity Reduction
@@ -160,12 +160,31 @@ legend(ax1,'a_{linear}','v_{linear}','v_{nonlinear}','a_{nonlinear}');
 plot(t(2:end), v_lin(2:end), 'LineWidth',1.6);
 hold on
 plot(t(2:end), v_non(2:end), '--', 'LineWidth',1.6);
-ylabel(ax1, 'Deceleration (Gs)');
-xlabel(ax1, 'Duration (s)');
-title(ax1, 'Estimated Crash Pulse - Linear vs Nonlinear Maxwell Model');
-legend(ax1,'a_{linear}','v_{linear}','v_{nonlinear}','a_{nonlinear}');
+ylabel('Velocity (m/s)','FontSize', 13);
+xlabel('Duration (s)','FontSize', 13);
+title('Estimated Velocity Reduction - Linear vs Nonlinear Maxwell Model','FontSize', 16);
+legend('v_{linear}','v_{nonlinear}');
         set(gca,'yMinorGrid','on');
         set(gca,'xMinorGrid','on');
         grid on;
         pbaspect([6 4 1]);
-        hold off;
+        hold off
+    
+%% -------------------------------
+%3. Estimated Vehicle Displacement
+    ax3 = axes('Parent', tab3);
+
+plot(t(2:end), x_lin(2:end), 'LineWidth',1.6);
+hold on
+plot(t(2:end), x_non(2:end), '--', 'LineWidth',1.6);
+ylabel('Displacement (m)','FontSize', 13);
+xlabel('Duration (s)','FontSize', 13);
+title('Estimated Vehicle Displacement - Linear vs Nonlinear Maxwell Model');
+legend('x_{linear}','x_{nonlinear}');
+        set(gca,'yMinorGrid','on');
+        set(gca,'xMinorGrid','on');
+        grid on;
+        pbaspect([6 4 1]);
+        hold off
+        
+%% -------------------------------
