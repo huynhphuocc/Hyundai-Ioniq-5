@@ -1,4 +1,4 @@
-## Hyundai Ioniq 5 – Crashworthiness & Passenger Safety Analysis
+## Hyundai Ioniq 5 – Crashworthiness & Occupant Protection Analysis
 
 **Graduation Thesis – Faculty of International Education - Ho Chi Minh City University of Technology and Education (HCMUTE)**  
 **Supervisor:** Dr. Nguyen Manh Cuong
