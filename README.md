@@ -1,4 +1,4 @@
-## Hyundai Ioniq 5 – Crashworthiness & Occupant Protection Analysis
+## Hyundai Ioniq 5 – Vehicle Crashworthiness & Occupant Protection Analysis
 
 **Graduation Thesis – Faculty of International Education - Ho Chi Minh City University of Technology and Education (HCMUTE)**  
 **Supervisor:** Dr. Nguyen Manh Cuong
@@ -22,6 +22,8 @@ All calculations follow **ASI**, **SAE J211** and **NHTSA** safety assessment pr
 | **MATLAB** | R2024a | Core numerical computation and plotting |
 | **Simulink** | R2024a | Occupant dynamics and crash pulse modeling |
 | **Visual Studio Code (Codespaces)** | Latest | Cloud-based collaborative editing and version control |
+
+## Note: this version is on process, the completion will be available by December. Please do not take this as the reference.
 
 ---
 **© 2025 Hyundai Ioniq 5 Crash Simulation Project.**
