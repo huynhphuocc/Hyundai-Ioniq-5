@@ -91,7 +91,7 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
         C_coef  = lamda* 0.5 * sqrt(K_coef * m_veh1);       % [Ns/m] Damping factor
 
     %k. Simulation timing
-        End_time       = 0.15;                  % [s] estimated impact duration
+        End_time       = 0.2;                  % [s] estimated impact duration
         dt             = 0.001;                % [s] analysis time increment (1ms)
         t              = -0.001:dt:End_time;        % Range of time
 
@@ -139,7 +139,6 @@ legend('Acceleration_{a}','Velocity_{v}','Displacement_{x}');
         pbaspect([6 4 1]);
         hold off
 %% 2. APPROACH 2: Genetic Algorithm Prediction Method  
-    ax2 = axes('Parent', tab2);
 
 % TARGET (from reference data)
 t_target  = [0, 0.0894, End_time];
@@ -232,7 +231,7 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     if ~exist('results','dir'), mkdir('results'); end
 
     % Plot Acceleration curve
-    ax2 = axes('Parent', tab2);
+    ax2 = axes('Parent', tab2);    
     plot(ax2,tq,a1m/9.81,'LineWidth',1.5); 
     hold(ax2, 'on');
     plot(ax2,tq,a2m/9.81,'LineWidth',1.5); 
@@ -299,3 +298,4 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     title(ax7,'[Genetic Algorithm Prediction] Force of Vehicle Deformation and Restraint System','FontSize', 14);
     grid(ax7,'on');
 end
+
