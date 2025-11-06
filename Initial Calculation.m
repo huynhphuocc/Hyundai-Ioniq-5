@@ -22,7 +22,6 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
     tab6 = uitab(tabgroup, 'Title', '6. Damping');
     tab7 = uitab(tabgroup, 'Title', '7. Force');
     tab8 = uitab(tabgroup, 'Title', '8. Energy Summary');
-    tab9 = uitab(tabgroup, 'Title', '9. Stress - Strain Curve'); 
 %% -------------------------------
 %II. Build the required calculation
 %Specification
@@ -76,7 +75,7 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
      
     %g. Occupant setup
         v_rebound_OCC1   =-11.7;       % [m/s] Reference passenger rebound speed
-        Occ_dmax         = 1;          % [m] Estimated passenger displacement
+        Occ_dmax         = 0.8;        % [m] Estimated torso displacement
         lamda            = 0.3;
         
     %h. Primary material inputs (HSS) 
@@ -142,22 +141,32 @@ legend('Acceleration_{a}','Velocity_{v}','Displacement_{x}');
 
 % TARGET (from reference data)
 t_target  = [0, 0.0894, End_time];
-x1_target = [0, Crushmax, 0];
-x2_target = [0, Occ_dmax, 0];
+x1_target = [0, Crushmax, 0.3];
+x2_target = [0, Occ_dmax, 0.4];
 v1_target = [Impact_V1, 0, v_rebound1];
 v2_target = [Impact_V1, 0, v_rebound_OCC1];
 
-% Limitation of 24 parameters (ki1,ki2,ki3,ki4; ci1,ci2,ci3,ci4; xi1 xi2;
-% vi1 vi2)
-lb = [1e6,5e5,1e5,1e4,0.1,0.3,0.7269,5e4,1e4,5e3,500,2,1e6,5e5,1e5,1e4,0.03,0.1,0.2731,5e3,1e3,500,50,1];
-ub = [1e8,5e7,1e7,1e6,0.4,0.6,0.7269,5e6,1e6,5e5,5e4,10,1e8,5e7,1e7,1e6,0.15,0.2,0.2731,5e5,1e5,5e4,5e3,8];
+% Limitation of 26 parameters (ki1,ki2,ki3,ki4; xi1 xi2; ci1,ci2,ci3,ci4; vi1 vi2 Crushmax/OCC_dmax)
+lb = [1e5,2e5,4e5,7.5e5,  0.15,0.45, 6e4,4e4,2e4,1e4,  5,10,  3e3,6e3,1e4,2e4, 0.02,0.3, 4e3,3e3,2e3,1e3, 1,8,   0.65,1 ];
+ub = [2e5,4e5,7.5e5,1e6,  0.5,0.6,   1e5,6e4,4e4,2e4,  10,14, 6e3,1e4,2e4,5e4, 0.5,0.8,  2e4,4e3,3e3,2e3, 8,15,  0.65,1 ];
 
 % Solving Genetic Algorithm of LPM
 fprintf('Generating Genetic Algorithm ...\n');
-options = optimoptions('ga','PopulationSize',300,'MaxGenerations',1000,...
-    'EliteCount',30,'Display','iter','PlotFcn',@gaplotbestf,'FunctionTolerance',1e-6);
+% options = optimoptions('ga','PopulationSize',500,'MaxGenerations',1500,...
+%     'EliteCount',30,'Display','iter','PlotFcn',@gaplotbestf,'FunctionTolerance',1e-6,...
+%     'UseParallel',true);
+options = optimoptions('ga',...
+    'PopulationSize',500,...
+    'MaxGenerations',1500,...
+    'MutationFcn',{@mutationadaptfeasible, 0.5},...   % seed mutation up to 0.5
+    'CrossoverFraction',0.9,...                       
+    'EliteCount',15,...
+    'Display','iter',...
+    'PlotFcn',@gaplotbestf,...
+    'FunctionTolerance',1e-10,'UseParallel',true);
+
 [best_params, best_err] = ga(@(p) cost_func(p,m_veh1,m_dum1,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target),...
-    24,[],[],[],[],lb,ub,[],options);
+    26,[],[],[],[],lb,ub,[],options);
 
 % Solving ODE by Runge–Kutta methods
 [t,y] = ode45(@(t,y) crash_ode(t,y,best_params,m_veh1,m_dum1,Impact_V1),[0 0.2],[0 Impact_V1 0 Impact_V1]);
@@ -165,7 +174,9 @@ options = optimoptions('ga','PopulationSize',300,'MaxGenerations',1000,...
 % PLOT RESULT
 plot_results(t,y,best_params,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target,tab2,tab3,tab4,tab5,tab6,tab7);
 fprintf('Completed... Error: %.2e\n', best_err);
-
+fprintf('Best parameters:\n');
+fprintf('%g ', best_params);
+fprintf('\n');
 
 % LOCAL FUNCTIONS 
 
@@ -179,38 +190,56 @@ function err = cost_func(p,m_veh1,m_dum1,Impact_V1,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2
     v1m = interp1(t,y(:,2),tq,'pchip',0); v2m = interp1(t,y(:,4),tq,'pchip',0);
     x1t = interp1(t_tgt,x1_tgt,tq,'pchip'); x2t = interp1(t_tgt,x2_tgt,tq,'pchip');
     v1t = interp1(t_tgt,v1_tgt,tq,'pchip'); v2t = interp1(t_tgt,v2_tgt,tq,'pchip');
-    err = 1e8*mean((x1m-x1t).^2) + 1e8*mean((x2m-x2t).^2) + ...
-          1e9*mean((v1m-v1t).^2) + 1e9*mean((v2m-v2t).^2);
-    if max(x1m)>0.8 || max(x2m)>1.1, err = err + 1e10; end
+    err = 5e8*mean((x1m-x1t).^2) + 5e8*mean((x2m-x2t).^2) + ...     % Mean squared error
+          5e8*mean((v1m-v1t).^2) + 5e8*mean((v2m-v2t).^2);
+    if max(x1m)>0.8 || max(x2m)>1.1, err = err + 1e10; end % Penalty if over-deformation
 end
 
 function dydt = crash_ode(~,y,p,m_veh1,m_dum1,~)
     x1=y(1); v1=y(2); x2=y(3); v2=y(4);
-    k1 = piecewise_k(x1,p(1:7));
-    c1 = piecewise_c(v1,p(8:12));
+    k1 = piecewise_k1(x1,p(1:6),p(25));   % add Crushmax
+    c1 = piecewise_c(v1,p(7:12));
     dx = x2-x1; dv = v2-v1;
-    k2 = piecewise_k(dx,p(13:19));
-    c2 = piecewise_c(dv,p(20:24));
-    Fstr  = k1*x1 + c1*v1;        
-    Frest = k2*dx + c2*dv;        
-    dydt = [v1; (Frest-Fstr)/m_veh1; v2; -Frest/m_dum1];  
+    k2 = piecewise_k2(dx,p(13:18),p(26)); % add Occ_dmax
+    c2 = piecewise_c(dv,p(19:24));
+    Fstr  = k1*x1 + c1*v1;        % Deformation force
+    Frest = k2*dx + c2*dv;        % Restraint system force
+    dydt = [v1; (Frest-Fstr)/m_veh1; v2; -Frest/m_dum1]; % ODE 
 end
 
-function k = piecewise_k(x,pk)
+function k = piecewise_k1(x,pk,Crushmax) % pk = [k1, k2, k3, k4, x1, x2]
     if x<=0, k=pk(1);
-    elseif x<=pk(5), k=pk(1)+(pk(2)-pk(1))/pk(5)*x;
-    elseif x<=pk(6), k=pk(2)+(pk(3)-pk(2))/(pk(6)-pk(5))*(x-pk(5));
-    elseif x<=pk(7), k=pk(3)+(pk(4)-pk(3))/(pk(7)-pk(6))*(x-pk(6));
+    elseif x<=pk(5), k=pk(1)+x*(pk(2)-pk(1))/pk(5);         
+    elseif x<=pk(6), k=pk(2)+(x-pk(5))*(pk(3)-pk(2))/(pk(6)-pk(5));
+    elseif x<=Crushmax, k=pk(3)+(x-pk(6))*(pk(4)-pk(3))/(Crushmax-pk(6));
+    else, k=pk(4); end
+end
+
+function k = piecewise_k2(x,pk,Occ_dmax) % pk = [k1, k2, k3, k4, x1, x2]
+    if x<=0, k=pk(1);
+    elseif x<=pk(5), k=pk(1)+x*(pk(2)-pk(1))/pk(5);         
+    elseif x<=pk(6), k=pk(2)+(x-pk(5))*(pk(3)-pk(2))/(pk(6)-pk(5));
+    elseif x<=Occ_dmax, k=pk(3)+(x-pk(6))*(pk(4)-pk(3))/(Occ_dmax-pk(6));
     else, k=pk(4); end
 end
 
 function c = piecewise_c(v,pc)
     va = abs(v);
-    if va<1e-3, c=pc(1);
-    elseif va<=pc(5), c=pc(1)-(pc(1)-pc(2))/pc(5)*va;
-    elseif va<=10, c=pc(2)-(pc(2)-pc(3))/(10-pc(5))*(va-pc(5));
-    else, c=pc(3)-(pc(3)-pc(4))/(13.89-10)*(va-10); end
-    c = max(c,1);
+    v_th1= max(pc(5), 1e-3);              % v1
+    v_th2= max(pc(6), v_th1 + 1e-3);      % v2 > v1
+    v0= max(50/3.6, v_th2 + 1e-3);         % upper cap (≈impact speed)
+    if va < 1e-3
+        c=pc(1);
+    elseif va <= v_th1
+        c=pc(1)-(pc(1)-pc(2))/v_th1*va;
+    elseif va <= v_th2
+        c=pc(2)-(pc(2)-pc(3))/(v_th2-v_th1)*(va-v_th1);
+    elseif va <= v0
+        c=pc(3)-(pc(3)-pc(4))/(v0-v_th2)*(va-v_th2);   
+    else
+        c=pc(4);
+    end
+    c = max(c,1e3);
 end
 
 function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,tab5,tab6,tab7)
@@ -221,13 +250,15 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     tq = 0:0.001:0.2;
     x1m = interp1(t,y(:,1),tq); x2m = interp1(t,y(:,3),tq);
     v1m = interp1(t,y(:,2),tq); v2m = interp1(t,y(:,4),tq);
-    a1m = gradient(v1m, 0.001);
-    a2m = gradient(v2m, 0.001);
-    kx1 = arrayfun(@(x) piecewise_k(x,p(1:7))*x, x1m);
-    cv1 = arrayfun(@(v) piecewise_c(v,p(8:12))*v, v1m);
+    % a1m = gradient(v1m, 0.001);
+    % a2m = gradient(v2m, 0.001);
+    a1m = gradient(smoothdata(v1m, 'gaussian', 20), 0.001);
+    a2m = gradient(smoothdata(v2m, 'gaussian', 20), 0.001);
+    kx1 = arrayfun(@(x) piecewise_k1(x,p(1:6),p(25))*x, x1m);
+    cv1 = arrayfun(@(v) piecewise_c(v,p(7:12))*v, v1m);
     dx = x2m-x1m; dv = v2m-v1m;
-    kx2 = arrayfun(@(d) piecewise_k(d,p(13:19))*d, dx);
-    cv2 = arrayfun(@(d) piecewise_c(d,p(20:24))*d, dv);
+    kx2 = arrayfun(@(d) piecewise_k2(d,p(13:18),p(26))*d, dx);
+    cv2 = arrayfun(@(d) piecewise_c(d,p(19:24))*d, dv);
     if ~exist('results','dir'), mkdir('results'); end
 
     % Plot Acceleration curve
@@ -239,6 +270,8 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     xlabel(ax2,'Duration (s)','FontSize', 13);
     legend(ax2,'a_1 (Vehicle)','a_2 (Passenger)'); 
     title(ax2,'[Genetic Algorithm Prediction] Crash Pulse','FontSize', 16);
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
     grid(ax2, 'on');
 
     % Plot Velocity curve
@@ -251,6 +284,8 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     xlabel(ax3,'Duration (s)','FontSize', 13);
     legend(ax3,'v_1 (Vehicle)','v_1 (target)','v_2 (Passenger)','v_2 (target)'); 
     title(ax3,'[Genetic Algorithm Prediction] Velocity Reduction','FontSize', 16);
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
     grid(ax3,'on');
 
     % Plot Displacement curve
@@ -262,8 +297,10 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     plot(ax4,t_tgt,x2_tgt,'b--'); 
     ylabel(ax4,'Displacement (m)','FontSize', 13);
     xlabel(ax4,'Duration (s)','FontSize', 13);
-    legend(ax4,'x_1 (Vehicle)','x_1 (target)','x_2 (Passenger)','x_2 (target)'); 
+    legend(ax4,'x_1 (Vehicle)','x_1 (target)','x_2 (Torso)','x_2 (target)'); 
     title(ax4,'[Genetic Algorithm Prediction] Vehicle & Occupant Displacement','FontSize', 16);
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
     grid(ax4,'on');
 
     % Plot Stiffness coefficient curve
@@ -274,6 +311,8 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     xlabel(ax5,'Duration (s)','FontSize', 13);
     legend(ax5,'F_{str,k}','F_{rest,k}'); 
     title(ax5,'[Genetic Algorithm Prediction] Stiffness Coefficient Characteristic','FontSize', 16);
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
     grid(ax5,'on');
 
     % Plot Damping coefficient curve
@@ -284,18 +323,51 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     xlabel(ax6,'Duration (s)','FontSize', 13);
     legend(ax6,'F_{str,c}','F_{rest,c}'); 
     title(ax6,'[Genetic Algorithm Prediction] Damping Coefficient Characteristic','FontSize', 16);
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
     grid(ax6,'on');
 
     % Plot Force curve
     ax7 = axes('Parent', tab7);      
-    F_str = kx1 + cv1;
-    F_rest = kx2 + cv2;
+    % F_str = kx1 + cv1;
+    % F_rest = kx2 + cv2;
+    F_str = arrayfun(@(x,v) piecewise_k1(x,p(1:6),p(25))*x + piecewise_c(v,p(7:12))*v, x1m, v1m);
+    F_rest = arrayfun(@(dx,dv) piecewise_k2(dx,p(13:18),p(26))*dx + piecewise_c(dv,p(19:24))*dv, dx, dv);
     plot(ax7,tq, F_str, 'LineWidth', 1.5); hold(ax7,'on');
     plot(ax7,tq, F_rest, 'LineWidth', 1.5); 
     ylabel(ax7,'Force (N)','FontSize', 13);
     xlabel(ax7,'Duration (s)','FontSize', 13);
     legend(ax7,'Vehicle deformation force','Restraint system force'); 
     title(ax7,'[Genetic Algorithm Prediction] Force of Vehicle Deformation and Restraint System','FontSize', 14);
-    grid(ax7,'on');
+    set(gca,'yMinorGrid','on');
+    set(gca,'xMinorGrid','on')
+    grid(ax7,'on');  
 end
+
+%%_______________
+% ENERGY SUMMARY 
+
+% VEHICLE kinetic energy
+ax8 = axes('Parent', tab8);
+
+KE_vehicle= 0.5*m_veh1*(y(:,2).^2);
+% OCCUPANT kinetic energy
+KE_occ =0.5*m_dum1*(y(:,4).^2);
+% Potential/absorbed energy
+E_str = cumtrapz(t, kx1 + cv1);  % deformation energy of vehicle
+E_rest = cumtrapz(t, kx2 + cv2); % restraint absorbed energy
+% Total energy balance
+E_total = KE_vehicle + KE_occ + E_str + E_rest;
+plot(ax8,t,KE_vehicle,'LineWidth',1.5); hold(ax8,'on');
+plot(ax8,t,KE_occ,'LineWidth',1.5);
+plot(ax8,t,E_str,'LineWidth',1.5);
+plot(ax8,t,E_rest,'LineWidth',1.5);
+ylabel(ax8,'Energy (J)','FontSize',13);
+xlabel(ax8,'Duration (s)','FontSize',13);
+legend(ax8,'Kinetic (Vehicle)','Kinetic (Occupant)',...
+       'Absorbed (Vehicle)','Absorbed (Restraint)');
+title(ax8,'[Energy Summary] Kinetic and Absorbed Energy','FontSize',16);
+set(gca,'yMinorGrid','on');
+set(gca,'xMinorGrid','on')
+grid(ax8,'on');
 
