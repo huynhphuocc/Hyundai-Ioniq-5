@@ -87,12 +87,12 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
 
     %i. Maxwell Model parameter
         K_coef  = (eta*m_veh1*Impact_V1^2)/Crushmax^2;      % [N/m] Stiffness coefficient
-        C_coef  = lamda* 0.5 * sqrt(K_coef * m_veh1);       % [Ns/m] Damping factor
+        C_coef  = lamda*0.5 *sqrt(K_coef*m_veh1);       % [Ns/m] Damping factor
 
     %k. Simulation timing
         End_time       = 0.2;                  % [s] estimated impact duration
         dt             = 0.001;                % [s] analysis time increment (1ms)
-        t              = -0.001:dt:End_time;        % Range of time
+        t              = -0.001:dt:End_time;   % Range of time
 
 %% -------------------------------
 %1. APPROACH 1: Maxwell Model Data
@@ -141,18 +141,18 @@ legend('Acceleration_{a}','Velocity_{v}','Displacement_{x}');
 
 % TARGET (from reference data)
 t_target  = [0, 0.0894, End_time];
-x1_target = [0, Crushmax, 0.3];
+x1_target = [0, Crushmax, 0.2];
 x2_target = [0, Occ_dmax, 0.4];
 v1_target = [Impact_V1, 0, v_rebound1];
 v2_target = [Impact_V1, 0, v_rebound_OCC1];
 
 % Limitation of 26 parameters (ki1,ki2,ki3,ki4; xi1 xi2; ci1,ci2,ci3,ci4; vi1 vi2 Crushmax/OCC_dmax)
-lb = [1e5,2e5,4e5,7.5e5,  0.15,0.45, 6e4,4e4,2e4,1e4,  5,10,  3e3,6e3,1e4,2e4, 0.02,0.3, 4e3,3e3,2e3,1e3, 1,8,   0.65,1 ];
-ub = [2e5,4e5,7.5e5,1e6,  0.5,0.6,   1e5,6e4,4e4,2e4,  10,14, 6e3,1e4,2e4,5e4, 0.5,0.8,  2e4,4e3,3e3,2e3, 8,15,  0.65,1 ];
+lb = [1e5,2e5,4e5,7.5e5,  0.15,0.45, 6e4,4e4,2e4,1e4,  5,10,  3e3,6e3,1e4,2e4, 0.02,0.3, 4e3,3e3,2e3,1e3, 1,8,   0.65,1 ]; % lower bound
+ub = [2e5,4e5,7.5e5,1e6,  0.5,0.6,   1e5,6e4,4e4,2e4,  10,14, 6e3,1e4,2e4,5e4, 0.5,0.8,  2e4,4e3,3e3,2e3, 8,15,  0.65,1 ]; % upper bound
 
 % Solving Genetic Algorithm of LPM
 fprintf('Generating Genetic Algorithm ...\n');
-% options = optimoptions('ga','PopulationSize',500,'MaxGenerations',1500,...
+% options = optimoptions('ga','PopulationSize',500,'MaxGenerations',1000,...
 %     'EliteCount',30,'Display','iter','PlotFcn',@gaplotbestf,'FunctionTolerance',1e-6,...
 %     'UseParallel',true);
 options = optimoptions('ga',...
@@ -246,7 +246,6 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     % Force all plots to render in main GUI figure
     fig = ancestor(tab2,'figure');
     figure(fig);
-
     tq = 0:0.001:0.2;
     x1m = interp1(t,y(:,1),tq); x2m = interp1(t,y(:,3),tq);
     v1m = interp1(t,y(:,2),tq); v2m = interp1(t,y(:,4),tq);
@@ -279,7 +278,7 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     plot(ax3,tq,v1m,'LineWidth',1.5); hold(ax3,'on'); 
     plot(ax3,t_tgt,v1_tgt,'b--');  
     plot(ax3,tq,v2m,'LineWidth',1.5); 
-    plot(ax3,t_tgt,v2_tgt,'b--'); 
+    plot(ax3,t_tgt,v2_tgt,'r--'); 
     ylabel(ax3,'Velocity (m/s)','FontSize', 13);
     xlabel(ax3,'Duration (s)','FontSize', 13);
     legend(ax3,'v_1 (Vehicle)','v_1 (target)','v_2 (Passenger)','v_2 (target)'); 
@@ -294,7 +293,7 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     hold(ax4,'on'); 
     plot(ax4,t_tgt,x1_tgt,'b--'); 
     plot(ax4,tq,x2m,'LineWidth',1.5); 
-    plot(ax4,t_tgt,x2_tgt,'b--'); 
+    plot(ax4,t_tgt,x2_tgt,'r--'); 
     ylabel(ax4,'Displacement (m)','FontSize', 13);
     xlabel(ax4,'Duration (s)','FontSize', 13);
     legend(ax4,'x_1 (Vehicle)','x_1 (target)','x_2 (Torso)','x_2 (target)'); 
@@ -344,18 +343,28 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     grid(ax7,'on');  
 end
 
-%%_______________
-% ENERGY SUMMARY 
 
+%% ____ ENERGY SUMMARY_____________________ 
 % VEHICLE kinetic energy
 ax8 = axes('Parent', tab8);
-
-KE_vehicle= 0.5*m_veh1*(y(:,2).^2);
+KE_vehicle= 0.5*m_veh1 *(y(:,2).^2);
 % OCCUPANT kinetic energy
-KE_occ =0.5*m_dum1*(y(:,4).^2);
-% Potential/absorbed energy
-E_str = cumtrapz(t, kx1 + cv1);  % deformation energy of vehicle
-E_rest = cumtrapz(t, kx2 + cv2); % restraint absorbed energy
+KE_occ =0.5*m_dum1 *(y(:,4).^2);
+% Recalculate stiffness and damping forces
+x1 = y(:,1); v1 = y(:,2);
+x2 = y(:,3); v2 = y(:,4);
+dx = x2 - x1; dv = v2 - v1;
+k1s = arrayfun(@(x) piecewise_k1(x, best_params(1:6), best_params(25)), x1);
+c1s = arrayfun(@(v) piecewise_c( v, best_params(7:12)),v1);
+k2s = arrayfun(@(d) piecewise_k2(d, best_params(13:18),best_params(26)), dx);
+c2s = arrayfun(@(u) piecewise_c( u, best_params(19:24)),dv);
+F_str  = k1s.*x1 + c1s.*v1;        % Vehicle deformation force
+F_rest = k2s.*dx + c2s.*dv;        % Restraint system force
+% Compute absorbed energy by integration of positive work (F*v)
+P_str= F_str .* v1;              % Instantaneous power of structure
+P_rest= F_rest .* dv;             % Instantaneous power of restraint
+E_str= cumtrapz(t, max(P_str,0));   % Energy absorbed by vehicle structure
+E_rest= cumtrapz(t, max(P_rest,0));   % Energy absorbed by restraint system
 % Total energy balance
 E_total = KE_vehicle + KE_occ + E_str + E_rest;
 plot(ax8,t,KE_vehicle,'LineWidth',1.5); hold(ax8,'on');
@@ -368,6 +377,5 @@ legend(ax8,'Kinetic (Vehicle)','Kinetic (Occupant)',...
        'Absorbed (Vehicle)','Absorbed (Restraint)');
 title(ax8,'[Energy Summary] Kinetic and Absorbed Energy','FontSize',16);
 set(gca,'yMinorGrid','on');
-set(gca,'xMinorGrid','on')
+set(gca,'xMinorGrid','on');
 grid(ax8,'on');
-
