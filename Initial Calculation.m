@@ -6,7 +6,6 @@ clc;
     Purpose : Overall theoretical estimation before simulation
     Author  : Le Huynh Phuoc - 21145603 (Faculty of International Education – HCMUTE) 
 %}
-
 %% ------------------------------------------------------------------------------------------------
 
 %   I.Initialize common format of figures/charts:
@@ -22,6 +21,11 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
     tab6 = uitab(tabgroup, 'Title', '6. Damping');
     tab7 = uitab(tabgroup, 'Title', '7. Force');
     tab8 = uitab(tabgroup, 'Title', '8. Energy Summary');
+    tab9 = uitab(tabgroup, 'Title', '9. Head Injury Metric');
+    tab10= uitab(tabgroup, 'Title', '10. Chest Injury Metric');
+    tab11= uitab(tabgroup, 'Title', '11. Neck Injury Metric');
+    tab12= uitab(tabgroup, 'Title', '12. Femur Injury Metric');
+
 %% -------------------------------
 %II. Build the required calculation
 %Specification
@@ -157,7 +161,7 @@ fprintf('Generating Genetic Algorithm ...\n');
 %     'UseParallel',true);
 options = optimoptions('ga',...
     'PopulationSize',500,...
-    'MaxGenerations',1500,...
+    'MaxGenerations',1000,...
     'MutationFcn',{@mutationadaptfeasible, 0.5},...   % seed mutation up to 0.5
     'CrossoverFraction',0.9,...                       
     'EliteCount',15,...
@@ -171,8 +175,9 @@ options = optimoptions('ga',...
 % Solving ODE by Runge–Kutta methods
 [t,y] = ode45(@(t,y) crash_ode(t,y,best_params,m_veh1,m_dum1,Impact_V1),[0 0.2],[0 Impact_V1 0 Impact_V1]);
 
-% PLOT RESULT
-plot_results(t,y,best_params,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target,tab2,tab3,tab4,tab5,tab6,tab7);
+% PLOT RESULT SIGNATURE
+plot_results(t,y,best_params,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target, ...
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12);
 fprintf('Completed... Error: %.2e\n', best_err);
 fprintf('Best parameters:\n');
 fprintf('%g ', best_params);
@@ -242,7 +247,8 @@ function c = piecewise_c(v,pc)
     c = max(c,1e3);
 end
 
-function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,tab5,tab6,tab7)
+function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt, ...
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12)
     % Force all plots to render in main GUI figure
     fig = ancestor(tab2,'figure');
     figure(fig);
@@ -294,9 +300,11 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     plot(ax4,t_tgt,x1_tgt,'b--'); 
     plot(ax4,tq,x2m,'LineWidth',1.5); 
     plot(ax4,t_tgt,x2_tgt,'r--'); 
+    x_rel = x2m - x1m; 
+    plot(ax4,tq,x_rel,'k-.','LineWidth',1.3);  % relative curve (torso)
     ylabel(ax4,'Displacement (m)','FontSize', 13);
     xlabel(ax4,'Duration (s)','FontSize', 13);
-    legend(ax4,'x_1 (Vehicle)','x_1 (target)','x_2 (Torso)','x_2 (target)'); 
+    legend(ax4,'x_1 (Vehicle)','x_1 (target)','x_2 (Passenger)','x_2 (target)', 'x_{torso}'); 
     title(ax4,'[Genetic Algorithm Prediction] Vehicle & Occupant Displacement','FontSize', 16);
     set(gca,'yMinorGrid','on');
     set(gca,'xMinorGrid','on')
@@ -308,7 +316,7 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     plot(ax5,tq,kx2,'c','LineWidth',1.5); 
     ylabel(ax5,'Stiffness Coefficient (N/m)','FontSize', 13);
     xlabel(ax5,'Duration (s)','FontSize', 13);
-    legend(ax5,'F_{str,k}','F_{rest,k}'); 
+    legend(ax5,'K_{str}','K_{rest}'); 
     title(ax5,'[Genetic Algorithm Prediction] Stiffness Coefficient Characteristic','FontSize', 16);
     set(gca,'yMinorGrid','on');
     set(gca,'xMinorGrid','on')
@@ -320,7 +328,7 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt,tab2,tab3,tab4,t
     plot(ax6,tq,cv2,'c','LineWidth',1.5); 
     ylabel(ax6,'Damping Coefficient (Ns/m)','FontSize', 13);
     xlabel(ax6,'Duration (s)','FontSize', 13);
-    legend(ax6,'F_{str,c}','F_{rest,c}'); 
+    legend(ax6,'C_{str}','C_{rest}'); 
     title(ax6,'[Genetic Algorithm Prediction] Damping Coefficient Characteristic','FontSize', 16);
     set(gca,'yMinorGrid','on');
     set(gca,'xMinorGrid','on')
@@ -379,3 +387,250 @@ title(ax8,'[Energy Summary] Kinetic and Absorbed Energy','FontSize',16);
 set(gca,'yMinorGrid','on');
 set(gca,'xMinorGrid','on');
 grid(ax8,'on');
+
+%% 9. INJURY METRICS: HIC15 & HIC36 (based on a_2)
+ax9 = axes('Parent', tab9);
+
+% Acceleration of occupant
+tq = t;                             % time vector from ODE
+dt = mean(diff(tq));                % time step 
+v2m = y(:,4);                       % occupant velocity (m/s)
+a2m = gradient(v2m, dt);            % occupant accel (m/s^2)
+a2g = abs(a2m/9.81);                % Gs (absolute)
+%  Helper inline: calculate HIC with 'winSec' window 
+IA = [0; cumsum(a2g(:))];           % prefix-sum (calculation following model)
+N  = numel(a2g);
+% --- HIC15 ---
+win15   = 0.015;
+Wmin15  = max(1, round(win15/dt));
+HIC15   = 0; i1_15 = 1; i2_15 = Wmin15;
+
+for i1 = 1:(N-Wmin15)
+    i2max = min(N, i1 + ceil(1.5*Wmin15));   % to ~1.5*win
+    for i2 = (i1+Wmin15):i2max
+        dtw = tq(i2) - tq(i1);               % length of window (s)
+        if dtw<=0 || dtw>win15, continue; end
+        avg_a = (IA(i2)-IA(i1)) / (i2 - i1); % mean G
+        hicv  = dtw * (avg_a^2.5);           % HIC formula
+        if hicv > HIC15, HIC15 = hicv; i1_15 = i1; i2_15 = i2; end
+    end
+end
+t1_15 = tq(i1_15); t2_15 = tq(i2_15);
+% --- HIC36 ---
+win36   = 0.036;
+Wmin36  = max(1, round(win36/dt));
+HIC36   = 0; i1_36 = 1; i2_36 = Wmin36;
+for i1 = 1:(N-Wmin36)
+    i2max = min(N, i1 + ceil(1.5*Wmin36));
+    for i2 = (i1+Wmin36):i2max
+        dtw = tq(i2) - tq(i1);
+        if dtw<=0 || dtw>win36, continue; end
+        avg_a = (IA(i2)-IA(i1)) / (i2 - i1); % mean (G)
+        hicv  = dtw * (avg_a^2.5);
+        if hicv > HIC36, HIC36 = hicv; i1_36 = i1; i2_36 = i2; end
+    end
+end
+t1_36 = tq(i1_36); t2_36 = tq(i2_36);
+% ===== Estimated AIS3+ & AIS level =====
+approxRisk = @(hic) ( ...
+    (hic<300).*0.05 + ...
+    (hic>=300 & hic<700).*(0.05 + (hic-300)*(0.45/400)) + ...
+    (hic>=700 & hic<1000).*(0.50 + (hic-700)*(0.40/300)) + ...
+    (hic>=1000).*0.95 );
+approxAIS  = @(hic) ( ...
+    (hic<300).*1 + ...
+    (hic>=300 & hic<500).*2 + ...
+    (hic>=500 & hic<850).*3 + ...
+    (hic>=850 & hic<1500).*4 + ...
+    (hic>=1500).*5 );
+risk15 = min(max(approxRisk(HIC15),0),1);
+risk36 = min(max(approxRisk(HIC36),0),1);
+ais15  = approxAIS(HIC15);
+ais36  = approxAIS(HIC36);
+    plot(ax9, tq, a2g, 'LineWidth', 1.5); hold(ax9,'on');
+    ymax = max(a2g)*1.15 + eps;
+% highlight HIC15 window
+patch(ax9, [t1_15 t2_15 t2_15 t1_15], [0 0 ymax ymax], ...
+      [0.95 0.75 0.75], 'FaceAlpha', 0.28, 'EdgeColor','none');
+% highlight HIC36 window
+patch(ax9, [t1_36 t2_36 t2_36 t1_36], [0 0 ymax ymax], ...
+      [0.75 0.85 0.95], 'FaceAlpha', 0.28, 'EdgeColor','none');
+% annotate edges 
+plot(ax9, [t1_15 t2_15], [a2g(i1_15) a2g(i2_15)], 'r-', 'LineWidth', 1.0);
+plot(ax9, [t1_36 t2_36], [a2g(i1_36) a2g(i2_36)], 'b-', 'LineWidth', 1.0);
+txt15 = sprintf('HIC15 = %.1f | AIS~%d | Risk(AIS3+)~%d%%', HIC15, ais15, round(risk15*100));
+txt36 = sprintf('HIC36 = %.1f | AIS~%d | Risk(AIS3+)~%d%%', HIC36, ais36, round(risk36*100));
+text(t2_15, ymax*0.82, txt15, 'Color','r','FontSize',11,'HorizontalAlignment','right','Parent',ax9);
+text(t2_36, ymax*0.68, txt36, 'Color','b','FontSize',11,'HorizontalAlignment','right','Parent',ax9);
+    ylabel(ax9,'Occupant Head Acceleration (Gs)','FontSize', 13);
+    xlabel(ax9,'Duration (s)','FontSize', 13);
+    legend(ax9,'a_2 (Passenger)','HIC15 window','HIC36 window','Location','best');
+    title(ax9,'[Injury Metric] HIC15 & HIC36','FontSize', 16);
+    set(ax9,'yMinorGrid','on','xMinorGrid','on');
+    grid(ax9,'on');
+% Print to command window
+fprintf('HIC15 = %.1f (%.3f–%.3f s), AIS~%d, Risk(AIS3+)~%d%%\n', HIC15, t1_15, t2_15, ais15, round(risk15*100));
+fprintf('HIC36 = %.1f (%.3f–%.3f s), AIS~%d, Risk(AIS3+)~%d%%\n', HIC36, t1_36, t2_36, ais36, round(risk36*100));
+
+%% 10. Chest Deflection & V*C
+ax10 = axes('Parent', tab10);
+
+x1m = interp1(t, y(:,1), tq, 'pchip');
+x2m = interp1(t, y(:,3), tq, 'pchip');
+% Chest deflection proxy = relative motion of torso wrt vehicle (positive compression)
+x_rel = max(0, x2m - x1m);          % m
+% Compression rate
+v_rel = gradient(x_rel, dt);        % m/s
+v_rel = max(0, v_rel);              % taking compression phase
+% Thorax depth (50th male ~ 0.228 m). 
+D_chest = 0.228;
+try
+    if evalin('base','exist(''Thorax_Depth'',''var'')'), D_chest = evalin('base','Thorax_Depth'); end
+end
+% Viscous Criterion
+C   = x_rel / D_chest;              % compression ratio (−)
+VC  = v_rel .* C;                   % m/s
+[VCmax, idxVC] = max(VC);
+tVC = tq(idxVC);
+% Max chest deflection
+[xmax, idxX] = max(x_rel);
+tX = tq(idxX);
+%  Plot with 2 y-axis 
+yyaxis(ax10,'left');
+    plot(ax10, tq, x_rel*1000, 'LineWidth', 1.5);           % mm
+    yline(ax10, 55, '--', '55 mm limit', ...
+          'LabelHorizontalAlignment','left','LabelVerticalAlignment','top');
+    ylabel(ax10,'Chest deflection (mm)','FontSize',13);
+    yyaxis(ax10,'right');
+    plot(ax10, tq, VC, 'LineWidth', 1.5);                    % m/s
+    yline(ax10, 1.0, '--', 'VC = 1.0 m/s', ...
+          'LabelHorizontalAlignment','left','LabelVerticalAlignment','bottom');
+    ylabel(ax10,'V*C (m/s)','FontSize',13);
+% Markers + text
+hold(ax10,'on');
+    yyaxis(ax10,'left');  plot(ax10, tX, xmax*1000, 'ko','MarkerSize',5,'LineWidth',1);
+    text(tX, xmax*1000, sprintf('  x_{max}=%.1f mm @ %.3fs', xmax*1000, tX), ...
+         'FontSize',10,'Parent',ax10,'VerticalAlignment','bottom');
+    
+    yyaxis(ax10,'right'); plot(ax10, tVC, VCmax, 'ks','MarkerSize',5,'LineWidth',1);
+    text(tVC, VCmax, sprintf('  VC_{max}=%.2f m/s @ %.3fs', VCmax, tVC), ...
+         'FontSize',10,'Parent',ax10,'VerticalAlignment','bottom');
+    xlabel(ax10,'Duration (s)','FontSize',13);
+    title(ax10,'[Injury Metric] Chest Deflection & V*C','FontSize',16);
+    legend(ax10, 'Deflection','VC','Location','best');
+    set(ax10,'xMinorGrid','on','yMinorGrid','on'); grid(ax10,'on');
+% console for report
+fprintf('Chest deflection max = %.1f mm at %.3fs\n', xmax*1000, tX);
+fprintf('VC max = %.2f m/s at %.3fs (Thorax depth = %.0f mm)\n', VCmax, tVC, D_chest*1000);
+
+%% 11. Neck metrics (NIC & proxy Nij)
+ax11 = axes('Parent', tab11);
+
+v_torso = v2m;                       % torso velocity (m/s)
+a_torso = a2m;                       % torso accel (m/s^2)
+% --- Head surrogate by 1dof filter (head retard wrt to chest ~15 ms) ---
+tau_neck = 0.015;                    % time constant ~ 15 ms
+v_head = zeros(size(v_torso));
+for i = 2:numel(v_head)
+    v_head(i) = v_head(i-1) + dt*((v_torso(i) - v_head(i-1))/tau_neck);
+end
+a_head = gradient(v_head, dt);
+% --- NIC (Boström): NIC = 0.2*a_rel + 0.5*v_rel^2 ---
+% 0.2 m ~ distance head–T1 according to definition of NIC
+v_rel = v_head - v_torso;
+a_rel = a_head - a_torso;
+NIC   = 0.2*a_rel + 0.5*(v_rel.^2);  % [m^2/s^2]
+[NICmax, iNIC] = max(NIC);
+tNIC = tq(iNIC);
+% Raw Nij "proxy" from 2DOF (educational purpose) ---
+m_head = 4.5;                        % head mass (kg) 50th male
+Lneck  = 0.10;                       % length of neck - arm (m) approx
+Fz     = m_head * a_head;            % axial neck force proxy (N)
+Fshear = m_head * (a_head - a_torso);% shear due to relative sliding
+My     = Fshear * Lneck;             % bending moment proxy (N·m)
+% Reference Hybrid III 50th 
+Fint_ten = 6806;     % N (tension)
+Fint_comp= 6160;     % N (compression)
+Mint_flex= 310;      % N·m
+Mint_ext = 135;      % N·m
+% 4 Nij combination (taking maximum)
+N_te = max(Fz,0)/Fint_ten + max(abs(My),0)/Mint_ext;    % tension–extension
+N_tf = max(Fz,0)/Fint_ten + max(abs(My),0)/Mint_flex;   % tension–flexion
+N_ce = max(-Fz,0)/Fint_comp + max(abs(My),0)/Mint_ext;  % compression–extension
+N_cf = max(-Fz,0)/Fint_comp + max(abs(My),0)/Mint_flex; % compression–flexion
+Nij  = max([N_te; N_tf; N_ce; N_cf], [], 1);
+[Nijmax, iNij] = max(Nij);
+tNij = tq(iNij);
+%  Plot NIC (left) & Nij (right) 
+    yyaxis(ax11,'left');
+    plot(ax11, tq, NIC, 'LineWidth', 1.5);
+    yline(ax11, 15, '--', 'NIC=15 (guideline)', ...
+        'LabelHorizontalAlignment','left','LabelVerticalAlignment','middle');
+    ylabel(ax11,'NIC (m^2/s^2)','FontSize',13);
+    yyaxis(ax11,'right');
+    plot(ax11, tq, Nij, 'LineWidth', 1.5);
+    yline(ax11, 1.0, '--', 'Nij=1.0 limit', ...
+        'LabelHorizontalAlignment','left');
+    ylabel(ax11,'Nij (proxy)','FontSize',13);
+% Mark & annotate peaks
+yyaxis(ax11,'left');  hold(ax11,'on');
+    plot(ax11, tNIC, NICmax, 'ko','MarkerSize',5,'LineWidth',1);
+    text(tNIC, NICmax, sprintf('  NIC_{max}=%.1f @ %.3fs', NICmax, tNIC), ...
+         'FontSize',10,'VerticalAlignment','bottom');
+    yyaxis(ax11,'right');
+    plot(ax11, tNij, Nijmax, 'ks','MarkerSize',5,'LineWidth',1);
+    text(tNij, Nijmax, sprintf('  Nij_{max}=%.2f @ %.3fs', Nijmax, tNij), ...
+         'FontSize',10,'VerticalAlignment','bottom');
+    xlabel(ax11,'Duration (s)','FontSize',13);
+    title(ax11,'[Neck Metrics] NIC & Nij (educational proxy)','FontSize',16);
+    legend(ax11,'NIC','Nij','Location','best');
+    set(ax11,'xMinorGrid','on','yMinorGrid','on'); grid(ax11,'on');
+    % console for report
+fprintf('NICmax = %.1f at %.3fs\n', NICmax, tNIC);
+fprintf('Nij_max (proxy) = %.2f at %.3fs\n', Nijmax, tNij);
+
+%% 12. Femur Load (proxy, each leg)
+ax12 = axes('Parent', tab12);
+
+x_rel = max(0, x2m - x1m);          % torso moves forward wrt vehicle (m)
+v_rel = gradient(x_rel, dt);        % relative compressive velocity (m/s)
+v_rel = max(0, v_rel);              % taking compression phase
+% --- Param "knee bolster / fascia" (remember to take it to workspace so as to override)
+% Knee_Clearance = 0.080;   % (m) -> daskboard (around 80 mm)
+Knee_Clearance = Legroom_Front - 0.95; % 0.95 m is normal reactive distance
+Knee_k         = 2.0e5;   % (N/m) ≈ 2 kN at 10 mm
+Knee_c         = 5.0e3;   % (N·s/m) contact damping (for shock absorption)
+try
+    if evalin('base','exist(''Knee_Clearance'',''var'')'), Knee_Clearance = evalin('base','Knee_Clearance'); end
+    if evalin('base','exist(''Knee_k'',''var'')'),Knee_k= evalin('base','Knee_k'); end
+    if evalin('base','exist(''Knee_c'',''var'')'),Knee_c= evalin('base','Knee_c'); end
+end
+%  Contact model 1D: generate force when touching knee bolster
+pen   = max(0, x_rel - Knee_Clearance);     % deflection (m)
+F_knee_total = Knee_k.*pen + Knee_c.*v_rel; % total force from both thighs (N)
+F_knee_total = max(0, F_knee_total);
+% Divide equally on both sides (assuming symmetry)
+F_femur_each = 0.5 * F_knee_total;
+% Limiting display to avoid unreasonable spikes
+F_femur_each = min(F_femur_each, 12e3);     % clamp 12 kN/leg
+%  Reference threshold
+thr_good   = 7.6e3;   % 7.6 kN (Euro NCAP high score)
+thr_limit  = 10.0e3;  % 10 kN (FMVSS 208 high limit)
+% --- Plot
+plot(ax12, tq, F_femur_each/1000, 'LineWidth', 1.5); hold(ax12, 'on'); % kN
+yline(ax12, thr_good/1000, '--', '7.6 kN (good)',  'LabelHorizontalAlignment','left');
+yline(ax12, thr_limit/1000,'--', '10 kN (limit)',  'LabelHorizontalAlignment','left');
+% Mark peak
+[Fpk, ipk] = max(F_femur_each);
+tpk = tq(ipk);
+plot(ax12, tpk, Fpk/1000, 'ko', 'MarkerSize',5,'LineWidth',1);
+text(tpk, Fpk/1000, sprintf('  Peak = %.1f kN @ %.3fs', Fpk/1000, tpk), ...
+     'FontSize',10,'VerticalAlignment','bottom','Parent',ax12);
+xlabel(ax12,'Duration (s)','FontSize',13);
+ylabel(ax12,'Femur axial load (kN per leg)','FontSize',13);
+title(ax12,'[Lower-Extremity] Femur Load (proxy via knee bolster contact)','FontSize',16);
+legend(ax12,'Femur load (each leg)','Location','best');
+set(ax12,'xMinorGrid','on','yMinorGrid','on'); grid(ax12,'on');
+% console for report
+fprintf('Femur peak (each leg) = %.1f kN at %.3fs (clearance=%.0f mm, k=%.1f kN/mm)\n', ...
+    Fpk/1000, tpk, Knee_Clearance*1000, Knee_k/1e6);
