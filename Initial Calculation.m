@@ -25,6 +25,7 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
     tab10= uitab(tabgroup, 'Title', '10. Chest Injury Metric');
     tab11= uitab(tabgroup, 'Title', '11. Neck Injury Metric');
     tab12= uitab(tabgroup, 'Title', '12. Femur Injury Metric');
+    tab13= uitab(tabgroup, 'Title', '13. Vehicle Energy Distribution');
 
 %% -------------------------------
 %II. Build the required calculation
@@ -177,7 +178,7 @@ options = optimoptions('ga',...
 
 % PLOT RESULT SIGNATURE
 plot_results(t,y,best_params,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target, ...
-    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12);
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13);
 fprintf('Completed... Error: %.2e\n', best_err);
 fprintf('Best parameters:\n');
 fprintf('%g ', best_params);
@@ -248,7 +249,7 @@ function c = piecewise_c(v,pc)
 end
 
 function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt, ...
-    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12)
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13)
     % Force all plots to render in main GUI figure
     fig = ancestor(tab2,'figure');
     figure(fig);
@@ -634,3 +635,40 @@ set(ax12,'xMinorGrid','on','yMinorGrid','on'); grid(ax12,'on');
 % console for report
 fprintf('Femur peak (each leg) = %.1f kN at %.3fs (clearance=%.0f mm, k=%.1f kN/mm)\n', ...
     Fpk/1000, tpk, Knee_Clearance*1000, Knee_k/1e6);
+%% 13. Vehicle Energy Distribution 
+ax13 = axes('Parent', tab13);
+
+v1m = y(:,2);                       % occupant velocity (m/s)
+KE_vehicle = 0.5*m_veh1 .*(v1m.^2);
+% Initial energy (E0)
+if exist('Impact_V1','var') && ~isempty(Impact_V1)
+    E0 = 0.5*(m_veh1+m_dum1)*(Impact_V1^2);
+else
+    v0 = max(v1m(1), v2m(1));
+    E0 = 0.5*(m_veh1 + m_dum1)*(v0^2);
+end
+E0 = max(E0, eps);
+% Calculated as proportion
+E_abs_pct = 100*(E_str(end)/ E0);      % Absorption %
+E_ke_pct = 100 *(KE_vehicle(end)/ E0); % KE remaining %
+% Bar chart
+vals = [E_abs_pct, E_ke_pct, max(0, 100 - (E_abs_pct + E_ke_pct))];
+labels = {'Absorbed (Vehicle)', 'Remaining KE', 'Numerical loss'};
+colors = [0.3 0.6 0.9; 0.9 0.6 0.3; 0.7 0.7 0.7];
+
+barh(ax13, vals, 'FaceColor','flat'); 
+for i = 1:length(vals)
+    b = barh(ax13, i, vals(i), 'FaceColor', colors(i,:), 'BarWidth', 0.5);
+    hold(ax13, 'on');
+    text(vals(i)+2, i, sprintf('%.1f%%', vals(i)), 'FontSize',11, 'VerticalAlignment','middle');
+end
+set(ax13,'YTick',1:length(labels),'YTickLabel',labels,'FontSize',12);
+xlabel(ax13,'Percentage of E_0 (%)','FontSize',13);
+title(ax13,'[Energy Summary] Vehicle Energy Distribution at Final Time','FontSize',16);
+xlim(ax13,[0 120]); grid(ax13,'on');
+% Print cho report
+fprintf('\n[Vehicle Energy Distribution]\n');
+fprintf('  Absorbed (Vehicle): %.1f%%\n', E_abs_pct);
+fprintf('  Remaining KE:       %.1f%%\n', E_ke_pct);
+fprintf('  Numerical loss:     %.1f%%\n', max(0, 100 - (E_abs_pct + E_ke_pct)));
+
