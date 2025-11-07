@@ -19,7 +19,7 @@ All calculations follow **ASI**, **SAE J211** and **NHTSA** safety assessment pr
 ## Software Environment
 | Tool | Version | Purpose |
 |------|----------|----------|
-| **MATLAB** | R2024a | Core numerical computation and plotting |
+| **MATLAB** | R2024a | Core numerical computation and plotting; main file: Initial_Calculation.m|
 | **Simulink** | R2024a | Occupant dynamics and crash pulse modeling |
 | **Visual Studio Code (Codespaces)** | Latest | Cloud-based collaborative editing and version control |
 
