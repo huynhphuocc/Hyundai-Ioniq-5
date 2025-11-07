@@ -7,7 +7,7 @@
 
 ## Project Overview
 This repository contains the computational and simulation framework for the graduation thesis:  
-**“Calculation, simulation of car crashing and evaluation of passengers’ safety on Hyundai Ioniq 5.”**
+**“Numerical Analysis and Simulation of Vehicle Crashworthiness alongside Occupant Protection Assessment on the Hyundai Ioniq 5.”**
 
 ## Key Objectives
 - Implement a **MATLAB toolkit** for analyzing occupant safety.
