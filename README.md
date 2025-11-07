@@ -13,7 +13,7 @@ This repository contains the computational and simulation framework for the grad
 - Implement a **MATLAB toolkit** for analyzing occupant safety.
 - Develop **Simulink blocks** for occupant response estimation and dynamic crash pulse analysis.  
 
-All calculations follow **ASI**, **SAE J211** and **NHTSA** safety assessment principles.
+All calculations follow **ASI**, **Euro NCAP** and **NHTSA** safety assessment principles.
 
 
 ## Software Environment
