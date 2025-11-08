@@ -26,6 +26,7 @@ fig = figure('Name','PRELIMINARY CRASHWORTHINESS ESTIMATION - Hyundai Ioniq 5','
     tab11= uitab(tabgroup, 'Title', '11. Neck Injury Metric');
     tab12= uitab(tabgroup, 'Title', '12. Femur Injury Metric');
     tab13= uitab(tabgroup, 'Title', '13. Vehicle Energy Distribution');
+    tab14= uitab(tabgroup, 'Title', '14. Acceleration Severity Index');
 
 %% -------------------------------
 %II. Build the required calculation
@@ -162,7 +163,7 @@ fprintf('Generating Genetic Algorithm ...\n');
 %     'UseParallel',true);
 options = optimoptions('ga',...
     'PopulationSize',500,...
-    'MaxGenerations',1000,...
+    'MaxGenerations',1500,...
     'MutationFcn',{@mutationadaptfeasible, 0.5},...   % seed mutation up to 0.5
     'CrossoverFraction',0.9,...                       
     'EliteCount',15,...
@@ -178,7 +179,7 @@ options = optimoptions('ga',...
 
 % PLOT RESULT SIGNATURE
 plot_results(t,y,best_params,Impact_V1,t_target,x1_target,x2_target,v1_target,v2_target, ...
-    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13);
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13,tab14);
 fprintf('Completed... Error: %.2e\n', best_err);
 fprintf('Best parameters:\n');
 fprintf('%g ', best_params);
@@ -245,11 +246,11 @@ function c = piecewise_c(v,pc)
     else
         c=pc(4);
     end
-    c = max(c,1e3);
+    c = max(c,1);
 end
 
 function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt, ...
-    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13)
+    tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13,tab14)
     % Force all plots to render in main GUI figure
     fig = ancestor(tab2,'figure');
     figure(fig);
@@ -325,8 +326,8 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt, ...
 
     % Plot Damping coefficient curve
     ax6 = axes('Parent', tab6);      
-    plot(ax6,tq,cv1,'m','LineWidth',1.5); hold(ax6,'on'); 
-    plot(ax6,tq,cv2,'c','LineWidth',1.5); 
+    plot(ax6,tq,abs(cv1),'m','LineWidth',1.5); hold(ax6,'on'); 
+    plot(ax6,tq,abs(cv2),'c','LineWidth',1.5); 
     ylabel(ax6,'Damping Coefficient (Ns/m)','FontSize', 13);
     xlabel(ax6,'Duration (s)','FontSize', 13);
     legend(ax6,'C_{str}','C_{rest}'); 
@@ -341,8 +342,8 @@ function plot_results(t,y,p,~,t_tgt,x1_tgt,x2_tgt,v1_tgt,v2_tgt, ...
     % F_rest = kx2 + cv2;
     F_str = arrayfun(@(x,v) piecewise_k1(x,p(1:6),p(25))*x + piecewise_c(v,p(7:12))*v, x1m, v1m);
     F_rest = arrayfun(@(dx,dv) piecewise_k2(dx,p(13:18),p(26))*dx + piecewise_c(dv,p(19:24))*dv, dx, dv);
-    plot(ax7,tq, F_str, 'LineWidth', 1.5); hold(ax7,'on');
-    plot(ax7,tq, F_rest, 'LineWidth', 1.5); 
+    plot(ax7,tq, abs(F_str), 'LineWidth', 1.5); hold(ax7,'on');
+    plot(ax7,tq, abs(F_rest), 'LineWidth', 1.5); 
     ylabel(ax7,'Force (N)','FontSize', 13);
     xlabel(ax7,'Duration (s)','FontSize', 13);
     legend(ax7,'Vehicle deformation force','Restraint system force'); 
@@ -671,4 +672,42 @@ fprintf('\n[Vehicle Energy Distribution]\n');
 fprintf('  Absorbed (Vehicle): %.1f%%\n', E_abs_pct);
 fprintf('  Remaining KE:       %.1f%%\n', E_ke_pct);
 fprintf('  Numerical loss:     %.1f%%\n', max(0, 100 - (E_abs_pct + E_ke_pct)));
+
+%% 14. Acceleration Severity Index (ASI)
+ax14 = axes('Parent', tab14);
+
+% --- Acceleration data (from occupant or CG)
+a2m = gradient(y(:,4), dt); % acceleration of occupant (m/s^2)
+% --- Sliding average filter (ISO 6487 delta = 0.05s)
+delta = 0.05; 
+N = round(delta / dt);
+a_avg = movmean(a2m, N);
+% --- ASI computation (longitudinal only)
+g = 9.81;
+a_ref = 12 * g;        % limit for frontal direction
+ASI_t = abs(a_avg) / a_ref;
+ASI_peak = max(ASI_t);
+    plot(ax14, t, ASI_t, 'LineWidth', 1.6);
+    hold(ax14,'on');
+    yline(1.0,'g--','Class A (safe)');
+    yline(1.4,'y--','Class B');
+    yline(1.9,'r--','Class C (danger)');
+    xlabel(ax14,'Time (s)','FontSize',13);
+    ylabel(ax14,'ASI','FontSize',13);
+    title(ax14,'[ECE R94 / ISO 6487] Acceleration Severity Index','FontSize',16);
+    legend(ax14,'Instantaneous ASI','Location','best');
+    set(ax14,'xMinorGrid','on','yMinorGrid','on');
+    grid(ax14,'on');
+% Console summary
+fprintf('\n--- ASI ANALYSIS ---\n');
+fprintf('Peak ASI = %.3f\n', ASI_peak);
+if ASI_peak <= 1
+    fprintf('→ Safety Class A (Low injury risk)\n');
+elseif ASI_peak <= 1.4
+    fprintf('→ Safety Class B (Moderate injury risk)\n');
+elseif ASI_peak <= 1.9
+    fprintf('→ Safety Class C (High injury risk)\n');
+else
+    fprintf('→ Above Class C — Severe impact!\n');
+end
 
